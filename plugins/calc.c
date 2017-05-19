@@ -1,60 +1,81 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <math.h>
 
-typedef struct {
-    double * Number;
-    int top, size;
-} Number;
+// 4. Через TYPEDEF задать имена, для удобства
 
 typedef struct {
-    char * Action;
-    int top, size;
-} Action;
+    double* num;
+    int     top,
+            size;
+} Num;
 
-void NumberPush (Number* Number, double n) {
-    if (Number->top > Number->size - 2) {
-        Number->size += 10;
-        Number->Number = realloc (Number->Number , Number->size * sizeof (double));
+typedef struct {
+    char* act;
+    int   top,
+          size;
+} Act;
+
+void numPush (Num* num, double n) {
+    if (num->top > num->size - 2) {
+        num->size += 5;
+        num->num = realloc (num->num , num->size * sizeof (double));
     }    
-    Number->Number [Number->top] = n;
-    ++Number->top;
+    num->num [num->top] = n;
+    ++num->top;
 }
 
-void ActionPush (Action* Action, char a) {    
-    if (Action->top > Action->size - 2) {
-        Action->size += 10;
-        Action->Action = realloc (Action->Action , Action->size);
+void actPush (Act* act, char a) {    
+    if (act->top > act->size - 2) {
+        act->size += 5;
+        act->act = realloc (act->act , act->size);
     }
-    Action->Action [Action->top] = a;
-    ++Action->top;
+    act->act [act->top] = a;
+    ++act->top;
 }
 
-char ActionPop (Action* Action) {
-    --Action->top;
-    return Action->Action [Action->top];
+char actPop (Act* act) {
+    --act->top;
+    return act->act [act->top];
 }
 
-int NumberMath (Number* Number, char operation) {
-    if (Number->top < 2) {
+int checkNum (const char * str, Num *num, double sign) {
+    char * p;
+    if ( str [0] <= '9' && str [0] >= '0' ) {
+        numPush (num, sign * atof (str));
+        p = strpbrk (str, "+-/*^()");
+        if (p == NULL) return strlen (str);
+        return (strlen (str) - strlen (p));
+    }
+    return 0;
+}
+
+int numMath (Num* num, char operation) {
+    if (num->top < 2) {
         return 1;
     }
-    --Number->top;
-    if (operation == '+') {
-        Number->Number [Number->top - 1] = Number->Number [Number->top - 1] + Number->Number [Number->top];
-    } else if (operation == '-') {
-        Number->Number [Number->top - 1] = Number->Number [Number->top - 1] - Number->Number [Number->top];
-    } else if (operation == '/') {
-        Number->Number [Number->top - 1] = Number->Number [Number->top - 1] / Number->Number [Number->top];
-    } else if (operation == '*') {
-        Number->Number [Number->top - 1] = Number->Number [Number->top - 1] * Number->Number [Number->top];
-    } else if (operation == '^') {
-        Number->Number [Number->top - 1] = pow (Number->Number [Number->top - 1], Number->Number [Number->top]);
-    } else {
-        return 1;
+    switch (operation) {
+        case '+' :
+            num->num [num->top - 2] = num->num [num->top - 2] + num->num [num->top - 1];
+            break;
+        case '-' :
+            num->num [num->top - 2] = num->num [num->top - 2] - num->num [num->top - 1];
+            break;
+        case '/' :
+            num->num [num->top - 2] = num->num [num->top - 2] / num->num [num->top - 1];
+            break;
+        case '*' :
+            num->num [num->top - 2] = num->num [num->top - 2] * num->num [num->top - 1];
+            break;
+        case '^' :
+            num->num [num->top - 2] = pow (num->num [num->top - 2], num->num [num->top - 1]);
+            break;
+        default :
+            return 1;
+
     }
+    --num->top;
     return 0;
 }
 
@@ -72,83 +93,98 @@ int isBigger (char big, char lit) {
     return priority (big) >= priority (lit);
 }
 
-void initialize (Number *Number, Action *Action) {
-    Number->top  = Action->top  = 0;
-    Number->size = Action->size = 10;
-    Number->Number = calloc (Number->size, sizeof (double));
-    Action->Action = calloc (Action->size, sizeof (char));
+void initialize (const char * str, Num *num, Act *act) {
+    num->top  = act->top  = 0;
+    num->size = act->size = 5;
+    num->num = calloc (num->size, sizeof (double));
+    act->act = calloc (act->size, sizeof (char));
 }
 
 double calc (const char * str, int * status) {
     char pop;
     int step,
         // метка для чтения чисел, после прочтения операций
-        expectAction = 0,
+        expectAct = 0,
         len = strlen (str);
-    double  resault = 0;
-    Number Number;
-    Action Action;
-    initialize (&Number, &Action);
+    double  resault,
+            sign;
+    Num num;
+    Act act;
+    initialize (str, &num, &act);
 
     for (int i = 0; i < len; ++i){
-        if ( expectAction == 0) {
+
+        if ( expectAct == 0) {
             if (str [i] == '(') {
-                ActionPush (&Action, str [i]);
-            } else if (isdigit(str[i])||(str[i] == '-' && isdigit(str[i + 1]))) {
-                NumberPush (&Number, atof (str + i));
-                i = strpbrk (str + i, "+-/*^()") - str - 1;
-                expectAction = 1;
-            } else {
-                *status = 1;
-                printf ("Expect number.\n");
-                break;                
+                actPush (&act, str [i]);
+                continue;
+                // Save expectAct == 0.
             }
-        } else if (str [i] == ')') {
+            sign = 1.0;
+            if (str [i] == '-') {
+                ++i;
+                sign = -1.0;
+            }
+            if (step = checkNum (str + i, &num, sign)) {
+                i += step - 1;
+            }
+            expectAct = 1;
+            continue;
+        }
+
+        if (str [i] == ')') {
             while (1) {
-                if (Action.top == 0) {
+                if (act.top == 0) {
                     *status = 1;
                     printf ("Check brackets.\n");
-                    break;
+                    return 0.0;
                 }
-                pop = ActionPop (&Action);
+                pop = actPop (&act);
                 if (pop != '(') {
-                    if (NumberMath (&Number, pop)) {
-                        printf ("Check operators.\n");
-                        *status = 1;
-                        break;
+                    if (numMath (&num, pop) == 1) {
+                            printf ("Check operators 1 \n");
+                            *status = 1;
+                            return 0.0;
                     }
-                } else {
+                }
+                else {
                     break;
                 }
+            } 
+            // save expectAct == 1;
+            continue;
+        }
+        expectAct = 0;
+
+        if ( act.top == 0 ||  act.act [act.top - 1] == '(' ) {
+            actPush (&act, str [i]);
+            continue;
+        }
+
+        while (isBigger (act.act [act.top - 1], str [i])) {
+            if (numMath (&num, actPop(&act)) == 1) {
+                    printf ("Check operators.\n");
+                    *status = 1;
+                    return 0.0;
             }
-        } else {
-            expectAction = 0;
-            if ( Action.top == 0 ||  Action.Action [Action.top - 1] == '(' ) {
-                ActionPush (&Action, str [i]);
-            } else {
-                while (((Action.top > 0 && Action.Action [Action.top - 1] != '(')) 
-                    && isBigger (Action.Action [Action.top - 1], str [i])) {
-                    if (NumberMath (&Number, ActionPop(&Action))) {
-                        printf ("Check operators.\n");
-                        *status = 1;
-                        break;
-                    }
-                }
-                ActionPush (&Action, str[i]);            
-            }
+            if (act.top == 0 || act.act [act.top - 1] == '(') break;
+        }
+        actPush (&act, str[i]);
+    }
+
+    while(1) {
+        if (act.top == 0) break;
+        if (numMath (&num, actPop (&act)) == 1) {
+                    printf ("Check operators.\n");
+                    *status = 1;
+                    return 0.0;
         }
     }
-    while ((Action.top > 0)) {
-        if (NumberMath (&Number, ActionPop (&Action))) {
-            printf ("Check operators.\n");
-            *status = 1;
-            break;
-        }
-    }
-    if (*status == 0) {
-        resault = Number.Number[0];
-    }
-    free (Number.Number);
-    free (Action.Action);
+
+    *status = 0;
+    resault = num.num[0];
+    free (num.num);
+    free (act.act);
+    
     return resault;
 }
